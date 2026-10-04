@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDV Modular - Arquitetura de Microsserviços</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.4.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.4.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <section id="tela-login" class="login-portal" aria-labelledby="login-title">
+        <div class="login-brand">
+            <span class="brand-mark" aria-hidden="true">P</span>
+            <span>CEEP Maria Chaves <b>·</b> Laboratório de PDV</span>
+        </div>
+        <div class="login-card">
+            <p class="login-eyebrow">ACESSO AO SISTEMA</p>
+            <h1 id="login-title">Bem-vindo<br>de volta.</h1>
+            <p class="login-intro">Entre com sua conta institucional para abrir seu setor.</p>
+            <form id="login-form" class="login-form">
+                <label for="login-email">E-mail</label>
+                <input id="login-email" type="email" autocomplete="username" placeholder="nome@escola.edu.br" required>
+                <label for="login-password">Senha</label>
+                <input id="login-password" type="password" autocomplete="current-password" placeholder="Sua senha" required>
+                <button id="btn-login" class="login-submit" type="submit">Entrar no sistema <span aria-hidden="true">→</span></button>
+                <p id="login-message" class="login-message" role="status" aria-live="polite"></p>
+            </form>
+        </div>
+        <p class="login-footer">Acesso restrito a funcionários autorizados</p>
+    </section>
+
+    <div class="app-container" hidden>
+        <!-- Sidebar de Navegação -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h2>PDV<span>Micro</span></h2>
+            </div>
+            <nav>
+                <button class="nav-btn" data-target="tela-caixa" data-roles="operador_caixa,admin">🛒 Frente de Caixa</button>
+                <button class="nav-btn" data-target="tela-estoque" data-roles="operador_estoque,admin">📦 Estoque</button>
+                <button class="nav-btn" data-target="tela-vendas" data-roles="gerente_vendas,admin">📊 Vendas e Financeiro</button>
+                <button class="nav-btn" data-target="tela-admin" data-roles="admin">⚙️ Administração</button>
+            </nav>
+            <div class="user-info">
+                <p id="auth-status"></p>
+                <button id="btn-logout" class="btn-secundario" hidden>Sair</button>
+            </div>
+        </aside>
+
+        <!-- Área Principal -->
+        <main class="main-content">
+            <!-- Tela: Frente de Caixa -->
+            <section id="tela-caixa" class="view-section">
+                <header class="section-header">
+                    <h1>Terminal de Vendas</h1>
+                </header>
+                
+                <div class="pdv-grid">
+                    <!-- Busca e Leitura de Produtos -->
+                    <div class="pdv-entrada">
+                        <div class="input-group">
+                            <label>Código do Produto ou Barras</label>
+                            <input type="text" id="input-codigo" placeholder="Digite e aperte Enter..." autofocus>
+                        </div>
+                        <div class="lista-itens" id="carrinho-lista">
+                            <!-- Itens inseridos via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Resumo e Pagamento -->
+                    <div class="pdv-resumo">
+                        <h3>Resumo da Compra</h3>
+                        <div class="totais">
+                            <p>Subtotal: <span id="subtotal">R$ 0,00</span></p>
+                            <p>Desconto: <span id="desconto">R$ 0,00</span></p>
+                            <h2 class="valor-total">Total: <span id="total">R$ 0,00</span></h2>
+                        </div>
+                        <div class="pagamento-opcoes">
+                            <button class="btn-pagamento" data-tipo="PIX">PIX</button>
+                            <button class="btn-pagamento" data-tipo="Cartao">Cartão</button>
+                            <button class="btn-pagamento" data-tipo="Dinheiro">Dinheiro</button>
+                        </div>
+                        <button id="btn-finalizar" class="btn-finalizar" onclick="finalizarVenda()">Finalizar Venda</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tela-estoque" class="view-section">
+                <header class="section-header">
+                    <h1>Estoque e inventário</h1>
+                    <p>Gestão de produtos e disponibilidade.</p>
+                </header>
+                <div class="module-placeholder">
+                    <span class="module-index">02 / ESTOQUE</span>
+                    <h2>Área de produtos</h2>
+                    <p>Este setor está reservado para consulta, cadastro e atualização do inventário.</p>
+                </div>
+            </section>
+
+            <section id="tela-vendas" class="view-section">
+                <header class="section-header">
+                    <h1>Vendas e financeiro</h1>
+                    <p>Relatórios e acompanhamento de resultados.</p>
+                </header>
+                <div class="module-placeholder">
+                    <span class="module-index">03 / FINANCEIRO</span>
+                    <h2>Visão de vendas</h2>
+                    <p>Este setor está reservado para indicadores financeiros e relatórios de vendas.</p>
+                </div>
+            </section>
+
+            <section id="tela-admin" class="view-section">
+                <header class="section-header">
+                    <h1>Painel central</h1>
+                    <p>Acesso administrativo aos módulos do PDV.</p>
+                </header>
+                <div class="admin-content">
+                    <form id="delete-form" class="admin-form">
+                        <h2>Remover produto do estoque</h2>
+                        <label for="produto-id">ID do documento no Firestore</label>
+                        <input id="produto-id" type="text" required>
+                        <button class="btn-perigo" type="submit">Excluir produto</button>
+                    </form>
+                    <form id="cadastro-form" class="admin-form">
+                        <h2>Cadastrar Novo Funcionário</h2>
+                        <label for="cadastro-nome">Nome</label>
+                        <input id="cadastro-nome" name="nome" type="text" autocomplete="name" required>
+                        <label for="cadastro-email">E-mail</label>
+                        <input id="cadastro-email" name="email" type="email" autocomplete="email" required>
+                        <label for="cadastro-senha">Senha</label>
+                        <input id="cadastro-senha" name="senha" type="password" autocomplete="new-password" minlength="6" required>
+                        <label for="cadastro-role">Cargo</label>
+                        <select id="cadastro-role" name="role" required>
+                            <option value="" disabled selected>Selecione um cargo</option>
+                            <option value="admin">Administrador</option>
+                            <option value="operador_caixa">Operador de Caixa</option>
+                            <option value="operador_estoque">Operador de Estoque</option>
+                            <option value="gerente_vendas">Gerente de Vendas</option>
+                        </select>
+                        <button id="btn-criar-usuario" class="btn-finalizar" type="submit">Cadastrar Funcionário</button>
+                        <p id="create-user-message" class="form-message" role="status" aria-live="polite"></p>
+                    </form>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Scripts da Arquitetura -->
+    <script src="firebase-config.js"></script>
+    <script src="api-gateway.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
